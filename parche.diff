@@ -1,0 +1,72 @@
+--- a/src/kernel/universe.js
++++ b/src/kernel/universe.js
+@@ -1,7 +1,8 @@
+-const COC = require('./coc');
++const COC = require('./core/coc'); // Ruta corregida según nueva ubicación
+ const { Vector3 } = require('../lib/linear_algebra');
+
+ class Universe {
+     constructor({ zeta = 0.5, sigma = 0.01, dt = 0.1 } = {}) {
+         this.cocs = new Map();
+         this.zeta = zeta;
+         this.sigma = sigma;
+         this.dt = dt;
+     }
+ 
+     addCOC(coc) {
++         if (!(coc instanceof COC)) {
++             throw new TypeError('Only instances of CoherentOntologicalCubit can be added.');
++         }
+         this.cocs.set(coc.id, coc);
+     }
+
+     tick() {
+         const nextStates = new Map();
+
+         for (const [id, coc] of this.cocs.entries()) {
+             let syncForce = new Vector3(0, 0, 0);
+             for (const [neighborId, weight] of coc.connections.entries()) {
+                 const neighbor = this.cocs.get(neighborId);
+                 if (neighbor) {
+                     const weightedNeighborState = new Vector3(...neighbor.state).multiplyScalar(weight);
+                     syncForce.add(weightedNeighborState);
+                 }
+             }
+
+             const mbiTerm = Vector3.random().multiplyScalar(this.sigma);
+             const totalForce = syncForce.add(mbiTerm);
+
+             const projectionOperator = (v) =>
+-                 v.clone().subtract(coc.state.clone().multiplyScalar(v.dot(coc.state)));
++                 v.clone().subtract(
++                     new Vector3(...coc.state).clone().multiplyScalar(
++                         v.dot(new Vector3(...coc.state))
++                     )
++                 );
+
+             const tangentForce = projectionOperator(totalForce);
+             const dx = tangentForce.multiplyScalar(this.dt);
+-             const nextState = coc.state.clone().add(dx);
++             const current = new Vector3(...coc.state);
++             const nextState = current.add(dx).normalize();
+
+             nextStates.set(id, nextState.toArray());
+         }
+
+         for (const [id, nextState] of nextStates.entries()) {
+             const coc = this.cocs.get(id);
+             coc.updateState(nextState);
++             coc.snapshotSignature(); // Registro de firma para análisis temporal
+         }
+     }
+
+     getState() {
+         const universeState = {};
+         for (const [id, coc] of this.cocs.entries()) {
+             universeState[id] = coc.state;
+         }
+         return universeState;
+     }
+ }
+
+ module.exports = Universe;

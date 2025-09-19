@@ -1,0 +1,18 @@
+# Dependencias
+node_modules/
+
+# Datos y Snapshots
+data/snapshots/iis_snapshot.json
+*.log
+
+# Archivos de entorno
+.env
+
+# Salidas de visualización
+visualizations/
+
+# Logs de ejecución
+logs/
+
+# Archivos del sistema operativo
+.DS_Store
