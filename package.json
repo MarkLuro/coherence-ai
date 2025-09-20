@@ -1,15 +1,15 @@
 {
   "name": "coherence-ai-ontological-engine",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "An ontological computing engine that evolves intelligence, with real-time visualization.",
-  "main": "src/applications/meta_solver/streamer.js",
+  "main": "src/applications/protein_solver/streamer.js",
   "type": "module",
   "scripts": {
-    "start": "node src/applications/meta_solver/streamer.js",
+    "start": "node src/applications/protein_solver/streamer.js",
+    "start:tsp": "node src/applications/meta_solver/streamer.js",
     "phoenix": "node src/applications/phoenix/index.js",
     "solver:legacy:cli": "node src/applications/_legacy_solver_v2/cli.js",
     "solver:meta:cli": "node src/applications/meta_solver/cli.js",
-    "start:protein": "node src/applications/protein_solver/streamer.js"
     "test": "jest"
   },
   "dependencies": {
