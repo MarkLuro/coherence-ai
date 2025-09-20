@@ -9,6 +9,7 @@
     "phoenix": "node src/applications/phoenix/index.js",
     "solver:legacy:cli": "node src/applications/_legacy_solver_v2/cli.js",
     "solver:meta:cli": "node src/applications/meta_solver/cli.js",
+    "start:protein": "node src/applications/protein_solver/streamer.js"
     "test": "jest"
   },
   "dependencies": {

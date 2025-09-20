@@ -21,65 +21,76 @@ console.log(`[META_STREAMER] Observatorio Evolutivo activo en ws://localhost:${P
 
 async function main() {
     // 1. Crear el entorno físico
-    const citiesData = await loadTsplibProblem(PROBLEM_FILE);
-    const cities = citiesData.map(c => ({ x: c[0], y: c[1] }));
+    const cities = await loadTsplibProblem(PROBLEM_FILE);
     const tspEnv = new TSPEnvironment(cities);
 
     // 2. Crear la población inicial de estrategias
     const seedPopulation = [
         new StrategyCOC("connectNearest", StrategyLibrary.connectNearest),
         new StrategyCOC("breakLongestEdge", StrategyLibrary.breakLongestEdge),
+        // --- INICIO DE LA CORRECCIÓN DE INTELIGENCIA ---
+        new StrategyCOC("twoOptSwap", StrategyLibrary.twoOptSwap, { origin: "seed", generation: 0 }),
+        // --- FIN DE LA CORRECCIÓN DE INTELIGENCIA ---
     ];
 
     // 3. Instanciar el Meta-Universo
     const metaUniverse = new MetaUniverse(
-        { evolutionInterval: 20, maxPopulation: 50 },
+        {
+            evolutionInterval: 20,
+            maxPopulation: 100
+        },
         tspEnv,
         seedPopulation
     );
+
+    // 4. Registrar las semillas originales para reinyección genética
+    metaUniverse.originalSeeds = seedPopulation;
 
     console.log('[META_STREAMER] Meta-Universo instanciado. Esperando observadores...');
 
     wss.on('connection', (ws) => {
         console.log('[META_STREAMER] Observador conectado. Iniciando stream evolutivo...');
 
-        // Enviar datos iniciales (ciudades)
+        // Enviar ciudades al cliente al inicio
         ws.send(JSON.stringify({ type: 'init', cities: tspEnv.cities }));
 
-        // Bucle de simulación (stream de evolución)
         const simulationLoop = setInterval(() => {
             if (ws.readyState !== WebSocket.OPEN) {
                 clearInterval(simulationLoop);
                 return;
             }
 
-            // 4. Ejecutar un tick de evolución
+            // 5. Ejecutar un tick de evolución
             const log = metaUniverse.tick();
 
-            // 5. Transmitir el estado del ENTORNO FÍSICO y meta-datos
+            // Instrumentación en consola
+            const bestDistStr =
+                metaUniverse.bestDistance === Infinity
+                    ? "N/A"
+                    : metaUniverse.bestDistance.toFixed(2);
+
+            const activeStrategy = log.strategy?.split(']')[0]?.substring(1) || "N/A";
+
+            process.stdout.write(
+                `[META_STREAMER] 🌀 Tick: ${metaUniverse.tickCount} | ` +
+                `Strategy: ${activeStrategy} | ` +
+                `Pop: ${metaUniverse.population.length} | ` +
+                `Best Dist: ${bestDistStr}\r`
+            );
+
+            // 6. Transmitir el estado actual
             const state = {
                 type: 'universe_state',
                 tick: metaUniverse.tickCount,
-
-                // --- INICIO DE LA CORRECCIÓN ONTOLÓGICA ---
-                // Usamos la memoria persistente del Meta-Universo
                 tour: metaUniverse.bestTour,
-                best_distance:
-                    metaUniverse.bestDistance === Infinity
-                        ? null
-                        : metaUniverse.bestDistance,
-                // --- FIN DE LA CORRECCIÓN ONTOLÓGICA ---
-
-                // Aún mostramos la exploración en tiempo real (caótica)
+                best_distance: metaUniverse.bestDistance === Infinity ? null : metaUniverse.bestDistance,
                 edges: tspEnv.extractEdges(),
-
-                // Meta-información sobre la evolución
                 top_strategy: log.strategy,
                 population_size: metaUniverse.population.length
             };
 
             ws.send(JSON.stringify(state));
-        }, 100); // Lento para observar la evolución
+        }, 100); // Cada 100ms
 
         ws.on('close', () => {
             console.log('[META_STREAMER] Observador desconectado.');

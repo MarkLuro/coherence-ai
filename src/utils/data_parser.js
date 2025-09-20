@@ -11,7 +11,7 @@ import { promises as fs } from 'fs';
  * Carga un problema de TSP desde un archivo en formato TSPLIB.
  * Extrae las coordenadas de los nodos.
  * @param {string} filepath - La ruta al archivo .tsp.
- * @returns {Promise<number[][]>} Una promesa que se resuelve a un array de coordenadas [[x1, y1], [x2, y2], ...].
+ * @returns {Promise<Array<{x: number, y: number}>>} Una promesa que se resuelve a un array de objetos de ciudad.
  */
 export async function loadTsplibProblem(filepath) {
     try {
@@ -36,7 +36,9 @@ export async function loadTsplibProblem(filepath) {
             if (parts.length === 3) {
                 const x = parseFloat(parts[1]);
                 const y = parseFloat(parts[2]);
-                cities.push([x, y]);
+                // --- CORRECCIÓN SEMÁNTICA ---
+                // Se devuelve la forma {x, y} para que el resto del sistema funcione correctamente.
+                cities.push({ x, y });
             }
         }
         
