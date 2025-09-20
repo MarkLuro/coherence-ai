@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Observatorio Ontológico 3D</title>
+    <style>
+        body { margin: 0; background-color: #0a0a0a; overflow: hidden; }
+        canvas { display: block; }
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-family: "Courier New", monospace;
+            font-size: 16px;
+            text-shadow: 1px 1px 2px black;
+        }
+    </style>
+</head>
+<body>
+    <div id="info">Iniciando Conexión...</div>
+
+    <!--
+        PASO 1: El Import Map. Define DE UNA SOLA VEZ de dónde viene 'three'.
+    -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <!--
+        PASO 2: El Script de la Aplicación.
+        Se carga UNA SOLA VEZ, como 'module'.
+        No hay ninguna otra etiqueta <script> en todo el archivo que llame a 'viewer_app.js'.
+    -->
+    <script type="module" src="viewer_app.js"></script>
+
+</body>
+</html>

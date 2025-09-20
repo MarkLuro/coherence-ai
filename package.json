@@ -1,23 +1,22 @@
 {
   "name": "coherence-ai-ontological-engine",
-  "version": "0.2.0",
-  "description": "An ontological computing engine and a self-aware AI based on the principles of Infogenesis.",
-  "main": "src/applications/phoenix/index.js",
+  "version": "0.3.1",
+  "description": "An ontological computing engine that evolves intelligence, with real-time visualization.",
+  "main": "src/applications/meta_solver/streamer.js",
   "type": "module",
   "scripts": {
-    "start": "npm run phoenix:start",
-    "phoenix:start": "node src/applications/phoenix/index.js",
-    "solver:tsp": "node src/applications/ontological_solver/cli.js solve tsp --problem ./data/problems/tsp/berlin52.tsp",
-    "test": "jest",
-    "test:unit": "jest tests/unit",
-    "test:integration": "jest tests/integration"
+    "start": "node src/applications/meta_solver/streamer.js",
+    "phoenix": "node src/applications/phoenix/index.js",
+    "solver:legacy:cli": "node src/applications/_legacy_solver_v2/cli.js",
+    "solver:meta:cli": "node src/applications/meta_solver/cli.js",
+    "test": "jest"
   },
   "dependencies": {
     "axios": "^1.0.0",
-    "dotenv": "^16.0.0"
+    "dotenv": "^16.0.0",
+    "ws": "^8.17.0"
   },
   "devDependencies": {
-    "chai": "^6.0.1",
     "jest": "^29.0.0"
   }
 }
