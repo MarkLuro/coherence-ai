@@ -1,10 +1,12 @@
+// FORGED: src/kernel/meta_universe.js
+
 export class MetaUniverse {
     /**
      * Meta-Universe: ecosistema evolutivo de estrategias mínimas (COCs).
      * @param {object} config - Configuración evolutiva
-     * @param {object} environment - Entorno (e.g., TSP)
+     * @param {object} environment - Entorno (e.g., TSP, Protein)
      * @param {Array} initialPopulation - COCs iniciales
-     * @param {object} strategyLibrary - Módulo con funciones de estrategia exportadas (genoma)
+     * @param {object} strategyLibrary - Genoma de estrategias disponibles
      */
     constructor(config, environment, initialPopulation = [], strategyLibrary = {}) {
         this.config = {
@@ -22,7 +24,7 @@ export class MetaUniverse {
         this.environment = environment;
         this.population = initialPopulation;
 
-        // Genoma disponible para mutaciones y recombinaciones
+        // Genoma accesible para mutación y recombinación
         this.strategyLibrary = Object.entries(strategyLibrary || {});
 
         this.tickCount = 0;
@@ -33,16 +35,17 @@ export class MetaUniverse {
 
     /**
      * Ejecuta un ciclo de vida del universo.
+     * @returns {object} Información sobre el tick
      */
     tick() {
         if (this.population.length === 0) return;
 
-        // Ratchet: reinicia el entorno al mejor tour conocido
+        this.tickCount++;
+
+        // Ratchet: reinicia al mejor tour conocido si aplica
         if (typeof this.environment.setTour === 'function' && this.bestTour) {
             this.environment.setTour(this.bestTour);
         }
-
-        this.tickCount++;
 
         const initialScore = this.environment.evaluate();
         const strategy = this.selectStrategy();
@@ -52,13 +55,19 @@ export class MetaUniverse {
 
         strategy.feedback(deltaScore, this.temperature);
 
-        // Registrar nuevo mejor tour
+        let logMessage = null;
+
+        // Nuevo mejor score
         if (finalScore < this.bestDistance) {
+            const oldBest = this.bestDistance;
             this.bestDistance = finalScore;
+
             if (typeof this.environment.get_current_tour === 'function') {
                 this.bestTour = this.environment.get_current_tour();
             }
-            console.log(`\n✨ [MetaUniverse] Nuevo mejor score: ${this.bestDistance.toFixed(2)}`);
+
+            logMessage = `✨ Nuevo Mejor Score: ${this.bestDistance.toFixed(2)} (supera ${oldBest.toFixed(2)})`;
+            console.log(`\n${logMessage}`);
         }
 
         // Evolución periódica
@@ -66,7 +75,7 @@ export class MetaUniverse {
             this.evolvePopulation();
         }
 
-        // Enfriamiento gradual
+        // Enfriamiento
         this.temperature *= this.config.coolingRate;
 
         return {
@@ -75,23 +84,23 @@ export class MetaUniverse {
             strategy: strategy.toString(),
             deltaScore: deltaScore,
             score: finalScore,
-            temperature: this.temperature.toFixed(3)
+            temperature: this.temperature.toFixed(3),
+            logMessage
         };
     }
 
     /**
-     * Selección de estrategia (epsilon-greedy).
+     * Selección de estrategia (ε-greedy).
      */
     selectStrategy() {
         if (Math.random() < this.config.explorationRate) {
-            const randomIndex = Math.floor(Math.random() * this.population.length);
-            return this.population[randomIndex];
+            const randIndex = Math.floor(Math.random() * this.population.length);
+            return this.population[randIndex];
         }
 
         const totalCoherence = this.population.reduce((sum, coc) => sum + coc.coherence, 0);
         if (totalCoherence === 0) {
-            const randomIndex = Math.floor(Math.random() * this.population.length);
-            return this.population[randomIndex];
+            return this.population[Math.floor(Math.random() * this.population.length)];
         }
 
         const r = Math.random() * totalCoherence;
@@ -101,7 +110,7 @@ export class MetaUniverse {
             if (r <= acc) return coc;
         }
 
-        return this.population[this.population.length - 1]; // fallback
+        return this.population[this.population.length - 1]; // Fallback
     }
 
     /**
@@ -122,7 +131,7 @@ export class MetaUniverse {
                 const parentA = this.tournamentSelect();
                 const parentB = this.tournamentSelect();
                 if (parentA && parentB && parentA.id !== parentB.id) {
-                    const child = parentA.crossover(parentB, this.strategyLibrary); // CORRECTO: sin asignación errónea
+                    const child = parentA.crossover(parentB, this.strategyLibrary);
                     newPopulation.push(child);
                 } else if (parentA) {
                     newPopulation.push(parentA.cloneWithMutation(this.strategyLibrary));
@@ -155,7 +164,7 @@ export class MetaUniverse {
     }
 
     /**
-     * Agrega un nuevo COC manualmente a la población.
+     * Añadir un nuevo COC manualmente.
      */
     addStrategy(coc) {
         this.population.push(coc);

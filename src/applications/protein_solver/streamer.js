@@ -1,47 +1,57 @@
 // FORGED: src/applications/protein_solver/streamer.js
 
-/**
- * @file src/applications/protein_solver/streamer.js
- * @description Servidor de streaming para el UNIVERSO DE PLEGAMIENTO DE PROTEÍNAS.
- *              Este es el ensamblador para la PRUEBA DE UNIVERSALIDAD.
- *              Utiliza el MISMO KERNEL (`MetaUniverse`) que el solver TSP, pero lo aplica
- *              a una nueva física (`ProteinEnvironment`) y a un nuevo set de acciones atómicas
- *              (`protein_library`), demostrando la agnosticismia del motor ontológico.
- */
-
 import WebSocket, { WebSocketServer } from 'ws';
-import path from 'path';
+import { promises as fs } from 'fs';
 
-// --- Dependencias del Kernel y la Nueva Física ---
 import { MetaUniverse } from '../../kernel/meta_universe.js';
 import { ProteinEnvironment } from '../../physics/protein_environment.js';
 import { StrategyCOC } from '../../agents/strategy_coc.js';
 import * as ProteinStrategyLibrary from '../../strategies/protein_library.js';
 
-// --- Configuración del Universo Proteico ---
+// --- Configuración General ---
 const PORT = 8080;
-// Secuencia de benchmark canónica de 20 aminoácidos.
 const PROTEIN_SEQUENCE = "HPHPPHHPHPPHPHHPPHPH";
-const TICK_INTERVAL_MS = 50; // Aumentamos la velocidad para una visualización más fluida
 
 const wss = new WebSocketServer({ port: PORT });
-console.log(`[PROTEIN_STREAMER] 🧬 Observatorio de Plegamiento Molecular activo en ws://localhost:${PORT}`);
+console.log(`[PROTEIN_STREAMER] 🧬 Observatorio Ontológico activo en ws://localhost:${PORT}`);
 
-async function main() {
-    // 1. FORJAR LAS LEYES FÍSICAS: Instanciar el entorno con la secuencia proteica.
+// --- Genoma completo disponible ---
+const FULL_GENOME = {
+    rotate_cw: ProteinStrategyLibrary.rotate_bond_clockwise,
+    rotate_ccw: ProteinStrategyLibrary.rotate_bond_counter_clockwise,
+    hydro_collapse: ProteinStrategyLibrary.hydrophobic_collapse,
+    pull_move: ProteinStrategyLibrary.pullMove
+};
+
+// --- Estado del genoma activo ---
+let activeStrategies = {
+    rotate_cw: true,
+    rotate_ccw: true,
+    hydro_collapse: true,
+    pull_move: true,
+};
+
+// --- Configuración de simulación ---
+let tickInterval = 50;
+let isPaused = false;
+let simulationLoop = null;
+let metaUniverse = null;
+
+// --- Fábrica de Universos basada en genoma activo ---
+function createUniverse() {
     console.log(`[PROTEIN_STREAMER] Forjando leyes físicas para la secuencia: ${PROTEIN_SEQUENCE}`);
-    const proteinEnv = new ProteinEnvironment(PROTEIN_SEQUENCE);
+    const env = new ProteinEnvironment(PROTEIN_SEQUENCE);
 
-    // 2. CREAR LAS SEMILLAS DE LA VIDA (ESTRATEGIAS INICIALES):
-    const seedPopulation = [
-        new StrategyCOC("rotate_cw", ProteinStrategyLibrary.rotate_bond_clockwise, { origin: "seed" }),
-        new StrategyCOC("rotate_ccw", ProteinStrategyLibrary.rotate_bond_counter_clockwise, { origin: "seed" }),
-        new StrategyCOC("hydro_collapse", ProteinStrategyLibrary.hydrophobic_collapse, { origin: "seed" }),
-    ];
-    console.log(`[PROTEIN_STREAMER] Inyectando ${seedPopulation.length} estrategias atómicas primordiales.`);
+    const activeGenomeArray = Object.entries(FULL_GENOME).filter(([name]) => activeStrategies[name]);
+    const activeGenomeObject = Object.fromEntries(activeGenomeArray);
 
-    // 3. INSTANCIAR EL META-UNIVERSO: con física + genoma correctamente inyectados
-    const metaUniverse = new MetaUniverse(
+    const seedPopulation = activeGenomeArray.map(([name, fn]) =>
+        new StrategyCOC(name, fn, { origin: "seed" })
+    );
+
+    console.log(`[PROTEIN_STREAMER] Inyectando ${seedPopulation.length} estrategias atómicas activas.`);
+
+    return new MetaUniverse(
         {
             evolutionInterval: 25,
             maxPopulation: 50,
@@ -49,71 +59,131 @@ async function main() {
             coolingRate: 0.998,
             mutationRate: 0.4
         },
-        proteinEnv,
+        env,
         seedPopulation,
-        ProteinStrategyLibrary // ✅ Inyección explícita del genoma
+        activeGenomeObject
     );
+}
 
-    console.log('[PROTEIN_STREAMER] Meta-Universo instanciado. La computación emergente del plegamiento está lista.');
-    console.log('[PROTEIN_STREAMER] Esperando observadores...');
+// --- Bucle de simulación ---
+function runSimulation() {
+    if (simulationLoop) clearInterval(simulationLoop);
 
-    // 4. Servidor WebSocket para observadores visuales
+    simulationLoop = setInterval(() => {
+        if (isPaused || wss.clients.size === 0) return;
+
+        const log = metaUniverse.tick();
+
+        const state = {
+            type: 'universe_state',
+            tick: metaUniverse.tickCount,
+            chain: metaUniverse.environment.chain,
+            best_energy: metaUniverse.bestDistance === Infinity ? null : metaUniverse.bestDistance,
+            log: log.logMessage || null,
+        };
+
+        const msg = JSON.stringify(state);
+        for (const client of wss.clients) {
+            if (client.readyState === WebSocket.OPEN) {
+                client.send(msg);
+            }
+        }
+    }, tickInterval);
+}
+
+// --- Main ---
+async function main() {
+    metaUniverse = createUniverse();
+
     wss.on('connection', (ws) => {
-        console.log('[PROTEIN_STREAMER] ✨ Observador conectado. Iniciando stream de conformación molecular...');
+        console.log('[PROTEIN_STREAMER] ✨ Observador conectado.');
+        isPaused = false;
 
-        // Enviar metadatos iniciales
         ws.send(JSON.stringify({
             type: 'init',
-            sequence: proteinEnv.sequence,
+            sequence: metaUniverse.environment.sequence,
+            genome_status: activeStrategies
         }));
 
-        // Iniciar el bucle de simulación
-        const simulationLoop = setInterval(() => {
-            if (ws.readyState !== WebSocket.OPEN) {
-                clearInterval(simulationLoop);
-                return;
+        runSimulation();
+
+        ws.on('message', async (rawMessage) => {
+            try {
+                const message = JSON.parse(rawMessage);
+
+                if (message.type === 'control') {
+                    switch (message.command) {
+                        case 'pause':
+                            isPaused = true;
+                            console.log('[CONTROL] ⏸️ Pausa solicitada.');
+                            break;
+                        case 'resume':
+                            isPaused = false;
+                            console.log('[CONTROL] ▶️ Reanudación solicitada.');
+                            break;
+                        case 'tick':
+                            if (isPaused) {
+                                metaUniverse.tick();
+                                console.log('[CONTROL] ➡️ Tick manual ejecutado.');
+                            }
+                            break;
+                        case 'reset':
+                            metaUniverse.environment.reset();
+                            metaUniverse.bestDistance = Infinity;
+                            console.log('[CONTROL] 💥 Reset del entorno.');
+                            break;
+                        case 'save_snapshot':
+                            const snapshotPath = `./data/snapshots/snapshot_${Date.now()}.json`;
+                            const snapshotData = {
+                                bestChain: metaUniverse.environment.chain,
+                                bestEnergy: metaUniverse.bestDistance,
+                                population: metaUniverse.population.map(coc => ({
+                                    id: coc.id,
+                                    coherence: coc.coherence
+                                })),
+                                tickCount: metaUniverse.tickCount
+                            };
+                            await fs.mkdir('./data/snapshots', { recursive: true });
+                            await fs.writeFile(snapshotPath, JSON.stringify(snapshotData, null, 2));
+                            console.log(`[CONTROL] 💾 Snapshot guardado: ${snapshotPath}`);
+                            ws.send(JSON.stringify({ type: 'event', message: `✅ Snapshot guardado.` }));
+                            break;
+                        case 'toggle_strategy':
+                            if (message.key in activeStrategies) {
+                                activeStrategies[message.key] = !activeStrategies[message.key];
+                                console.log(`[CONTROL] Estrategia '${message.key}' ahora está ${activeStrategies[message.key] ? 'ACTIVA' : 'INACTIVA'}.`);
+                                metaUniverse = createUniverse();
+                                ws.send(JSON.stringify({ type: 'event', message: `🧬 Genoma actualizado. Universo reseteado.` }));
+                            }
+                            break;
+                    }
+                } else if (message.type === 'parameter') {
+                    if (message.key in metaUniverse.config) {
+                        metaUniverse.config[message.key] = message.value;
+                        console.log(`[CONTROL] 🔧 Parámetro '${message.key}' actualizado a ${message.value}`);
+                    } else if (message.key === 'tickInterval') {
+                        tickInterval = message.value;
+                        runSimulation(); // reiniciar con nuevo intervalo
+                        console.log(`[CONTROL] 🔄 Intervalo de tick actualizado: ${tickInterval}ms`);
+                    }
+                }
+
+            } catch (err) {
+                console.error('[ERROR] Fallo al procesar mensaje del cliente:', err);
             }
+        });
 
-            // Ejecutar un tick del universo
-            const log = metaUniverse.tick();
-
-            // Log en consola (en la terminal del servidor)
-            const bestEnergyStr = metaUniverse.bestDistance === Infinity
-                ? "N/A"
-                : metaUniverse.bestDistance.toFixed(2);
-            const activeStrategy = log.strategy?.split(']')[0]?.substring(1) || "N/A";
-
-            process.stdout.write(
-                `[PROTEIN_STREAMER] 🌀 Tick: ${metaUniverse.tickCount} | ` +
-                `Pop: ${metaUniverse.population.length} | ` +
-                `Strategy: ${activeStrategy} | ` +
-                `Best Energy: ${bestEnergyStr}\r`
-            );
-
-            // Enviar estado al cliente visualizador
-            const state = {
-                type: 'universe_state',
-                tick: metaUniverse.tickCount,
-                chain: proteinEnv.chain,
-                best_energy: metaUniverse.bestDistance === Infinity ? null : metaUniverse.bestDistance,
-                edges: Array.from({ length: proteinEnv.numAminoAcids - 1 }, (_, i) => [i, i + 1]),
-                top_strategy: log.strategy,
-                population_size: metaUniverse.population.length
-            };
-
-            ws.send(JSON.stringify(state));
-        }, TICK_INTERVAL_MS);
-
-        // Cleanup al desconectar
         ws.on('close', () => {
-            console.log('\n[PROTEIN_STREAMER] Observador desconectado. Pausando cómputo.');
-            clearInterval(simulationLoop);
+            console.log('[PROTEIN_STREAMER] 🔌 Observador desconectado.');
+            if (wss.clients.size === 0) {
+                console.log('[PROTEIN_STREAMER] 💤 Sin observadores. Pausando simulación.');
+                isPaused = true;
+            }
         });
     });
 }
 
-// Entrypoint
 main().catch(err => {
-    console.error("❌ Error fatal durante la génesis del universo proteico:", err);
+    console.error("❌ Error fatal durante la génesis del universo:", err);
     process.exit(1);
 });

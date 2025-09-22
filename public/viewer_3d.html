@@ -1,43 +1,69 @@
+<!-- FORGED: public/index.html -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Observatorio Ontológico 3D</title>
+    <title>Observatorio Ontológico v3.1</title>
     <style>
-        body { margin: 0; background-color: #0a0a0a; overflow: hidden; }
+        body {
+            margin: 0;
+            background-color: #0a0a0a;
+            color: white;
+            font-family: "Courier New", monospace;
+            overflow: hidden;
+        }
         canvas { display: block; }
         #info {
             position: absolute;
             top: 10px;
             left: 10px;
-            color: white;
-            font-family: "Courier New", monospace;
             font-size: 16px;
             text-shadow: 1px 1px 2px black;
+            z-index: 10;
+        }
+        #event-log {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            width: 450px;
+            height: 150px;
+            background-color: rgba(0, 0, 0, 0.3);
+            border: 1px solid #333;
+            overflow-y: scroll;
+            padding: 5px;
+            font-size: 12px;
+            z-index: 10;
+        }
+        #chart-container {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            width: 450px;
+            height: 150px;
+            background-color: rgba(0, 0, 0, 0.3);
+            border: 1px solid #333;
+            z-index: 10;
         }
     </style>
 </head>
 <body>
     <div id="info">Iniciando Conexión...</div>
+    <div id="event-log">-- Registro de Eventos Ontológicos --<br></div>
+    <div id="chart-container">
+        <canvas id="energy-chart"></canvas>
+    </div>
 
-    <!--
-        PASO 1: El Import Map. Define DE UNA SOLA VEZ de dónde viene 'three'.
-    -->
     <script type="importmap">
         {
             "imports": {
                 "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+                "lil-gui": "https://cdn.jsdelivr.net/npm/lil-gui@0.19/dist/lil-gui.esm.js",
+                "chart.js/auto": "https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.js"
             }
         }
     </script>
 
-    <!--
-        PASO 2: El Script de la Aplicación.
-        Se carga UNA SOLA VEZ, como 'module'.
-        No hay ninguna otra etiqueta <script> en todo el archivo que llame a 'viewer_app.js'.
-    -->
     <script type="module" src="viewer_app.js"></script>
-
 </body>
 </html>
