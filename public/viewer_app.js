@@ -18,6 +18,10 @@ let isPaused = false;
 let energyChart;
 let activeStrategies = {};
 
+const toolState = {
+    currentTool: 'ADD', // Opciones: 'ADD', 'REMOVE', 'MOVE'
+};
+
 const infoDiv = document.getElementById('info');
 const logDiv = document.getElementById('event-log');
 
